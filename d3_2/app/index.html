@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en" ng-app="myApp">
+<head>
+  <meta charset="utf-8">
+  <title>My AngularJS App</title>
+  <link rel="stylesheet" href="css/app.css"/>
+  <link rel="stylesheet" href="css/bootstrap.min.css"/>
+
+  <script src="lib/angular/angular.js"></script>
+  
+  <script src="lib/angular/angular-route.js"></script>
+  <script src="js/app.js"></script>
+  <script src="js/services.js"></script>
+  <script src="js/controllers.js"></script>
+  <script src="js/filters.js"></script>
+  <script src="js/directives.js"></script>
+  <script src="js/d3.js"></script>
+  
+  <style>
+
+    .node circle {
+      fill: #fff;
+      stroke: steelblue;
+      stroke-width: 1.5px;
+    }
+
+    .node {
+      font: 10px sans-serif;
+    }
+
+    .link {
+      fill: none;
+      stroke: #ccc;
+      stroke-width: 1.5px;
+    }
+
+  </style>
+</head>
+<body>
+      <div ng-controller="MainCtrl" style="width:100%">
+        <div class="row" style="margin-left:20px;">
+            {{ greeting }}
+        </div>
+        <div class="col-md-4" style="">
+            <div d3-bars data="data"></div>
+        </div>
+      </div>
+</body>
+</html>
