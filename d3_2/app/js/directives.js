@@ -24,6 +24,8 @@ angular.module('myApp.directives', ['d3'])
                 panSpeed = 200,
                 panBoundary = 20,
                 panTimer = null,
+                domNode = null,
+                dragStarted = null,
                 i = 0;
             
 
@@ -68,7 +70,6 @@ angular.module('myApp.directives', ['d3'])
 
             // Define the zoom function for the zoomable tree
             function zoom() {
-                console.log("zoom")
                 svg.attr("transform", "translate(" + d3.event.translate + ") scale(" + d3.event.scale + ")");
             }
             // define the zoomListener which calls the zoom function on the "zoom" event constrained within the scaleExtents
@@ -80,10 +81,10 @@ angular.module('myApp.directives', ['d3'])
                 .append("svg")
                 .attr("width", viewerWidth)
                 .attr("height", viewerHeight)
-                .append('g')
                 .attr('transform', 'translate(50, 0)')
                 //.attr("class", "overlay")
-                .call(zoomListener);
+                .call(zoomListener)
+                .append('g');
 
 
             var diagonal = d3.svg.diagonal()
@@ -92,66 +93,87 @@ angular.module('myApp.directives', ['d3'])
             
             
 
+            // Toggle children on click.
+            function toggleChildren(d) {
+                if (d.contents) {
+                    d._contents = d.contents;
+                    d.contents = [];
+                } else if (d._contents) {
+                    d.contents = d._contents;
+                    d._contents = [];
+                }
+                return d;
+            }
+            var clickToggleChildren = function(d){
+                if (d3.event.defaultPrevented) return;
+                d = toggleChildren(d);
 
+                scope.render(d);
+            };
+
+            var clickDrag = function(d){
+                d3.select(this.parentNode).call(circleDragger);
+            };
 
 
             var overCircle = function(d){
                 selectedNode = d;
                 updateTempConnector();
-                //console.log("in")
             };
 
             var outCircle = function(d){
                 selectedNode = null;
                 updateTempConnector();
-                //console.log("out")
             };
 
             var circleDragger = d3.behavior.drag()
                 .on("dragstart", function(d){
                     draggingNode = d;
-                    d3.event.sourceEvent.stopPropagation();
+                    d3.event.sourceEvent.stopPropagation(); // silence other listeners
+                    dragStarted = true;
+
                     // it's important that we suppress the mouseover event on the node being dragged.
                     // Otherwise it will absorb the mouseover event and the underlying node will not detect it
-                    //d3.select(this).attr( 'pointer-events', 'none' );
+                    d3.select(this).attr( 'pointer-events', 'none' );
                 })
                 .on("drag", function(d) {
-                    //console.log("DRAG",d3.select(ele[0]))
-                    // get coords of mouseEvent relative to svg container to allow for panning
-                    /*
-                    var relCoords = d3.mouse(ele[0]);
-                    //console.log("!!!", relCoords[0], panBoundary)
-                    if (relCoords[0] < panBoundary){
-                        panTimer = true;
-                        pan(this, 'left');
-                    } else if (relCoords[0] > (viewerWidth - panBoundary)) {
-                        panTimer = true;
-                        pan(this, 'right');
-                    } else if (relCoords[1] < panBoundary) {
-                        panTimer = true;
-                        pan(this, 'up');
-                    } else if (relCoords[1] > (viewerHeight - panBoundary)) {
-                        panTimer = true;
-                        pan(this, 'down');
-                    } else {
-                        try {
-                            clearTimeout(panTimer);
-                        } catch (e) {
 
-                        }
+                    if (dragStarted) {
+                        domNode = this;
+                        initiateDrag(d, domNode);
                     }
-                    */
+
 
 
                     d.x += d3.event.dy;
                     d.y += d3.event.dx;
-                    var node = d3.select(this);
-                    //node.attr( { cx: d.x, cy: d.y } );
-                    node.attr("transform", "translate(" + d.y + "," + d.x + ")");
+                    //var node = d3.select(this);
+                    
+                    var translate = d3.transform(domNode.getAttribute("transform")).translate;
+                    var x = d3.event.dx + translate[0],
+                        y = d3.event.dy + translate[1];
+                    d3.select(domNode).attr("transform", "translate(" + x + "," + y + ")");
+
+
                     updateTempConnector();
                 })
                 .on("dragend", function(d){
+                    domNode = this;
                     if (selectedNode) {
+                        // now remove the element from the parent, and insert it into the new elements children
+                        var index = draggingNode.parent.children.indexOf(draggingNode);
+                        if (index > -1) {
+                            draggingNode.parent.contents.splice(index, 1);
+                        }
+
+                        if (typeof selectedNode.contents !== 'undefined' ) {
+                                selectedNode.contents.push(draggingNode);
+                        } else {
+                            selectedNode.contents = [];
+                            selectedNode.contents.push(draggingNode);
+                        }
+
+
 
 
                         endDrag();
@@ -161,22 +183,59 @@ angular.module('myApp.directives', ['d3'])
                     
                 });
 
+            var initiateDrag = function(d, domNode) {
+                draggingNode = d;
+                d3.select(domNode).select('.ghostCircle').attr('pointer-events', 'none');
+                d3.selectAll('.ghostCircle').attr('class', 'ghostCircle show');
+                d3.select(domNode).attr('class', 'node activeDrag');
+
+
+
+
+                //console.log(nodesExit)
+                /*
+                svg.selectAll("g.node")
+                    .data(nodes, function(d) {
+                        return d.id;
+                    })
+                    .filter(function(d, i) {
+                        if (d.id == draggingNode.id) {
+                            return false;
+                        }
+                        return true;
+                    }).remove();
+                */
+                // remove parent link using name
+                svg.selectAll('path.link').filter(function(d, i) {
+                    if (d.target.name == draggingNode.name) {
+                        return true;
+                    }
+                    return false;
+                }).remove();
+
+                dragStarted = null;
+            };
+
             var endDrag = function(){
-                draggingNode = null;
+                selectedNode = null;
+                d3.selectAll('.ghostCircle').attr('class', 'ghostCircle');
+                d3.select(domNode).attr('class', 'node');
                 // now restore the mouseover event or we won't be able to drag a 2nd time
-                //d3.select(this).attr( 'pointer-events', '' );
-                console.log(d3.select(this))
+                d3.select(domNode).attr( 'pointer-events', '' );
+                updateTempConnector();
+
+                if (draggingNode !== null) {
+                    scope.render(scope.data);
+                    //centerNode(draggingNode);
+                    draggingNode = null;
+                }
+                
             };
 
             var updateTempConnector = function(){
                
-                //console.log("draggingNode", draggingNode);
-
                 var data = [];
                 if (draggingNode !== null && selectedNode !== null){
-                    //console.log("!!")
-                    //console.log("selectedNode", selectedNode);
-                    //console.log("draggingNode", draggingNode);
                     data = [{
                             source: {x: selectedNode.y, y: selectedNode.x},
                             target: {x: draggingNode.y, y:draggingNode.x}
@@ -195,6 +254,7 @@ angular.module('myApp.directives', ['d3'])
             
 
 
+
             scope.render = function(data) {
                 svg.selectAll('*').remove();
 
@@ -211,34 +271,74 @@ angular.module('myApp.directives', ['d3'])
                         .data(links)
                         .enter().append('path')
                         .attr('class', 'link')
-                        .attr('d', diagonal)
+                        .attr('d', diagonal);
                         //.attr('pointer-events', 'none');
 
                 var node = svg.selectAll(".node")
-                        .data(nodes)
-                        .enter().append("g")
-                        .attr('class', 'node')
-                        .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
-                        //.attr('pointer-events', 'mouseover')
-                        .call(circleDragger);
+                        .data(nodes, function(d) {
+                            return d.id || (d.id = ++i);
+                        });
+
+                var nodeEnter = node.enter().append("g")
+                        .attr('class', 'node');
+                        //.attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
+                        //.call(circleDragger);
+                        
+                        
 
                 node.append("circle")
-                    .attr("r", 5);
+                    .attr("r", 0)
+                    .attr('class', 'nodeCircle')
+                    .attr("cx", function (d) { return d.y; })
+                    .attr("cy", function (d) { return d.x; })
+                    //.attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
+                    .style("fill", function(d) {
+                        return d._contents ? "lightsteelblue" : "#fff";
+                    })
+                    .on('click', clickDrag);
+
+                node.select("circle.nodeCircle")
+                    .attr("r", 6)
+                    .style("fill", function(d) {
+                        return d._contents ? "lightsteelblue" : "#fff";
+                    });
+
+                node.append("rect")
+                    .attr("x", function (d) { return d.y + 10; })
+                    .attr("y", function (d) { return d.x - 10; })
+                    .attr("width", function(d){ if (d.contents || d._contents ){ if (d.contents.length > 0 || d._contents.length >0 ) console.log(d.contents); return 10;}})
+                    .attr("height", function(d){ if (d.contents || d._contents) return 20;})
+                    .style("fill", "red")
+                    //.attr("transform", function(d) { return "translate(" + (parseInt(d.y, 10) + 10) + "," + d.x + ")"; })
+                    .on('click', clickToggleChildren);
                 
                 // phantom node to give us mouseover in a radius around it
-                node.append("circle")
+                nodeEnter.append("circle")
                     .attr("r", 40)
-                    .attr("opacity", 0)
-                    //.attr('pointer-events', 'mouseover')
-                    .on('mouseover', overCircle)
-                    .on('mouseout', outCircle);
+                    .attr('class', 'ghostCircle')
+                    .style("fill", "red")
+                    .attr("opacity", 0.2)
+                    //
+                    .attr("cx", function (d) { return d.y; })
+                    .attr("cy", function (d) { return d.x; })
+                    //
+                    .attr('pointer-events', 'mouseover')
+                    //.on('mouseover', overCircle)
+                    //.on('mouseout', outCircle);
+                    .on("mouseover", function(node) {
+                        overCircle(node);
+                    })
+                    .on("mouseout", function(node) {
+                        outCircle(node);
+                    });
                     
                 
                 node.append('text')
-                    .attr('dx', function(d){ return d.children ? -12: 10;})
+                    .attr('dx', function(d){ return d.contents ? -12: 10;})
                     .attr('dy', 3)
-                    .style('text-anchor', function(d){ return d.children ? 'end': 'start';})
-                    .text(function(d){ return d.name;});
+                    .style('text-anchor', function(d){ return d.contents ? 'end': 'start';})
+                    .text(function(d){ return d.name;})
+                    .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; });
 
                 /*
                 var newNodes = [{x:150, y:203, name: 'new'}];
@@ -248,8 +348,8 @@ angular.module('myApp.directives', ['d3'])
                     .attr('r', 5)
                     .attr("class", "lonely")
                     .attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
-                    .call(circleDragger);
-                */
+                    */
+                
             };
 
             scope.render(scope.data);

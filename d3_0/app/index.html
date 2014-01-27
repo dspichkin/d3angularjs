@@ -4,7 +4,6 @@
   <meta charset="utf-8">
   <title>My AngularJS App</title>
   <link rel="stylesheet" href="css/app.css"/>
-  <link rel="stylesheet" href="css/bootstrap.min.css"/>
 
   <script src="lib/angular/angular.js"></script>
   
@@ -39,26 +38,13 @@
       stroke-width: 1.5px;
     }
 
-    .ghostCircle.show{
-      display:block;
-    }
-
-    .ghostCircle, .activeDrag .ghostCircle{
-      display: none;
-    }
-
   </style>
+
 </head>
 <body>
-      <div ng-controller="MainCtrl" style="width:100%">
-        <div class="row" style="margin-left:20px;">
-            {{ greeting }}
-        </div>
-        <div class="col-md-4" style="">
-          <div id="tree-container" d3-bars data="data" style="height:500px;"></div>    
-        </div>
-
-      </div>
-      
+  <div ng-controller="MainCtrl">
+    {{ greeting }}
+    <div d3-bars data="data" style="width:400px;height:400px"></div>
+  </div>
 </body>
 </html>
