@@ -61,7 +61,11 @@ function sortTree() {
 	});
 }
 
-// Sort the tree initially incase the JSON isn't in a sorted order. sortTree(); // TODO: Pan function, can be better implemented.
+// Sort the tree initially incase the JSON isn't in a sorted order.
+sortTree();
+
+// TODO: Pan function, can be better implemented.
+
 
 function pan(domNode, direction) {
 	var speed = panSpeed;
