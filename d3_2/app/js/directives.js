@@ -14,13 +14,13 @@ angular.module('myApp.directives', ['d3'])
       link: function(scope, ele, attrs) {
         d3Service.d3().then(function(d3) {
  
-            var width = 500,
+            var root = scope.data,
+                width = 500,
                 height = 400,
                 viewerWidth = ele[0].offsetWidth,
                 viewerHeight =  ele[0].offsetHeight,
                 selectedNode = null,
                 draggingNode = null,
-                // panning variables
                 panSpeed = 100,
                 panBoundary = 50,
                 panTimer = false,
@@ -30,28 +30,16 @@ angular.module('myApp.directives', ['d3'])
                 nodeHeight = 70,
                 nodeWidth = 100,
                 i = 0;
-            
-
+                
+                
             // sort the tree according to the node names
-            //var comparator = function(a, b) {
-            //        return b.name.toLowerCase() < a.name.toLowerCase() ? 1 : b.name.toLowerCase() > a.name.toLowerCase() ? -1 : 0;
-            //};
             var comparator = function(a, b) {
                     return b.id < a.id ? 1 : b.id > a.id ? - 1 : 0;
             };
 
-            //var separation = function(a, b) {
-            //  return (a.parent == b.parent ? 1 : 2) * 200;
-            //};
-
-            //console.log()
 
             var tree = d3.layout.tree()
-                            .children(function(d){
-                                return (!d.contents || d.contents.length === 0) ? null : d.contents;
-                            }).nodeSize([nodeHeight, nodeWidth]);
-                            //.separation(separation)
-                            //.size([viewerHeight, viewerWidth]);
+                            .nodeSize([nodeWidth + 10, 0]);
             
 
            
@@ -103,15 +91,10 @@ angular.module('myApp.directives', ['d3'])
                 .append("svg")
                 .attr("width", viewerWidth)
                 .attr("height", viewerHeight)
-                
-                //.attr("class", "overlay")
                 .call(zoomListener)
-                .append('g')
-                .attr('transform', 'translate(50, 0)');
+                .append('g');
+                //.attr('transform', 'translate(50, 0)');
 
-
-            //var diagonal = d3.svg.diagonal()
-            //        .projection(function(d){ return [d.x, d.y];});
 
             var diagonal = d3.svg.diagonal()
                 .projection(function (d) {
@@ -122,13 +105,13 @@ angular.module('myApp.directives', ['d3'])
 
             // Toggle children on click.
             function toggleChildren(d) {
-                //console.log(d.contents, d._contents)
-                if (d.contents) {
-                    d._contents = d.contents;
-                    d.contents = null;
-                } else if (d._contents) {
-                    d.contents = d._contents;
-                    d._contents = null;
+                //console.log(d.children, d._children)
+                if (d.children) {
+                    d._children = d.children;
+                    d.children = null;
+                } else if (d._children) {
+                    d.children = d._children;
+                    d._children = null;
                 }
                 return d;
             }
@@ -136,7 +119,8 @@ angular.module('myApp.directives', ['d3'])
                 if (d3.event.defaultPrevented) return;
                 d = toggleChildren(d);
 
-                scope.render(d);
+
+                update(d);
             };
 
             var clickDrag = function(d){
@@ -229,14 +213,14 @@ angular.module('myApp.directives', ['d3'])
                         // now remove the element from the parent, and insert it into the new elements children
                         var index = draggingNode.parent.children.indexOf(draggingNode);
                         if (index > -1) {
-                            draggingNode.parent.contents.splice(index, 1);
+                            draggingNode.parent.children.splice(index, 1);
                         }
 
-                        if (typeof selectedNode.contents !== 'undefined' ) {
-                                selectedNode.contents.push(draggingNode);
+                        if (typeof selectedNode.children !== 'undefined' ) {
+                                selectedNode.children.push(draggingNode);
                         } else {
-                            selectedNode.contents = [];
-                            selectedNode.contents.push(draggingNode);
+                            selectedNode.children = [];
+                            selectedNode.children.push(draggingNode);
                         }
 
 
@@ -279,7 +263,7 @@ angular.module('myApp.directives', ['d3'])
                     return storage;
                 };
                 // Remove selected nodes
-                if (d.contents) {
+                if (d.children) {
                     var childrenNodes = [];
                     svg.selectAll("g.node")
                         .data(nodes, function(d) {
@@ -325,7 +309,7 @@ angular.module('myApp.directives', ['d3'])
                 updateTempConnector();
 
                 if (draggingNode !== null) {
-                    scope.render(scope.data);
+                    update(scope.data);
                     //centerNode(draggingNode);
                     draggingNode = null;
                 }
@@ -355,99 +339,86 @@ angular.module('myApp.directives', ['d3'])
 
 
 
-            scope.render = function(data) {
+            var update = function(source){
                 
 
-
-                svg.selectAll('*').remove();
-
-                if (!data) {
-                    console.log("Data is null");
-                    return;
-                }
-
-                //tree = tree.size([viewerHeight, viewerWidth]);
-                tree = tree.nodeSize([nodeHeight, nodeWidth]);
-                nodes = tree.nodes(scope.data).reverse();
+                nodes = tree.nodes(root).reverse();
                 var links = tree.links(nodes);
 
                 // Normalize for fixed-depth.
                 nodes.forEach(function (d) {
-                    d.y = d.depth * 180;
+                    d.y = d.depth * 150;
                 });
 
-                tree.sort(comparator);
-
-                
-
-                
-                var link = svg.selectAll('path.link')
-                        .data(links, function(d){
-                            return d.target.id;
-                        });
-
-                link.enter().insert('path', 'g')
-                    .attr('class', 'link')
-                    .attr("x", nodeWidth / 2)
-                    .attr("y", nodeHeight / 2)
-                    .attr("d", function (d) {
-                        var o = {
-                            x: data.x0,
-                            y: data.y0
-                        };
-                        return diagonal({
-                            source: o,
-                            target: o
-                        });
-                    });
-                // Transition links to their new position.
-                link.transition()
-                    .duration(750)
-                    .attr("d", diagonal);
-
-                // Transition exiting nodes to the parent's new position.
-                link.exit().transition()
-                    .duration(750)
-                    .attr("d", function (d) {
-                        var o = {
-                            x: data.x,
-                            y: data.y
-                        };
-                        return diagonal({
-                            source: o,
-                            target: o
-                        });
-                    })
-                    .remove();
-
-
-                // Create node
-                
-
-                var node = svg.selectAll(".node")
+                var node = svg.selectAll("g.node")
                         .data(nodes, function(d) {
                             return d.id || (d.id = ++i);
                         });
 
+                tree.sort(comparator);
+
+                // Create node
+                // Enter any new nodes at the parent's previous position
                 var nodeEnter = node.enter().append("g")
                         .attr('class', 'node')
                         .attr("transform", function (d) {
-                            return "translate(" + data.x0 + "," + data.y0 + ")";
+                            return "translate(" + source.x0 + "," + source.y0 + ")";
                         })
                         .on('click', clickToggleChildren);
-                
-               
+
+
 
                 // Main node boundry
                 nodeEnter.append("rect")
                     .style("fill", "white")
                     .style("stroke", "green")
-                    .attr("x", function (d) { return d.x - 10; })
-                    .attr("y", function (d) { return d.y - 10; })
-                    .attr("width", 100)
+                    .attr("stroke-width", 1)
+                    .attr("width", nodeWidth)
                     .attr("height", nodeHeight);
 
-               
+                
+                nodeEnter.append('text')
+                    .attr('dx', 5)
+                    .attr('dy', 10)
+                    //.style('text-anchor', function(d){ return d.children ? 'end': 'start';})
+                    .style('text-anchor', 'start')
+                    .text(function(d){ return d.name;});
+
+
+                // phantom node to give us mouseover in a radius around it
+                nodeEnter.append("rect")
+                    .attr('class', 'ghostCircle')
+                    .style("fill", "red")
+                    .attr('width', nodeWidth)
+                    .attr('height', nodeHeight)
+                    .attr("opacity", 0.2)
+                    .attr('pointer-events', 'mouseover')
+                    .on("mouseover", function(node) {
+                        overCircle(node);
+                    })
+                    .on("mouseout", function(node) {
+                        outCircle(node);
+                    });
+
+
+                nodeEnter.append("circle")
+                    .attr("r", 0)
+                    .attr('class', 'nodeCircle')
+                    .style("fill", function(d) {
+                        return d._children ? "lightsteelblue" : "#fff";
+                    })
+                    .on('click', clickDrag);
+
+                nodeEnter.select("circle.nodeCircle")
+                    .attr("r", 6)
+                    .style("fill", function(d) {
+                        return d._children ? "lightsteelblue" : "#fff";
+                    });
+
+
+
+
+
 
                  // Transition nodes to their new position.
                 var nodeUpdate = node.transition()
@@ -455,7 +426,9 @@ angular.module('myApp.directives', ['d3'])
                     .attr("transform", function (d) {
                         return "translate(" + d.x + "," + d.y + ")";
                     });
-                
+
+
+
                 nodeUpdate.select("rect")
                     .attr("width", nodeWidth)
                     .attr("height", nodeHeight)
@@ -464,15 +437,17 @@ angular.module('myApp.directives', ['d3'])
                     .style("fill", function (d) {
                         return d._children ? "lightsteelblue" : "#fff";
                     });
-                     
+
                 nodeUpdate.select("text")
                     .style("fill-opacity", 1);
+
+
 
                  // Transition exiting nodes to the parent's new position.
                 var nodeExit = node.exit().transition()
                         .duration(750)
                         .attr("transform", function (d) {
-                            return "translate(" + data.x + "," + data.y + ")";
+                            return "translate(" + source.x + "," + source.y + ")";
                         })
                         .remove();
 
@@ -482,71 +457,65 @@ angular.module('myApp.directives', ['d3'])
                     .attr("stroke", "black")
                     .attr("stroke-width", 1);
 
-/*
-                nodeEnter.append("circle")
-                    .attr("r", 0)
-                    .attr('class', 'nodeCircle')
-                    .attr("cx", function (d) { return d.x; })
-                    .attr("cy", function (d) { return d.y; })
-                    //.attr("transform", function(d) { return "translate(" + d.y + "," + d.x + ")"; })
-                    .style("fill", function(d) {
-                        return d._contents ? "lightsteelblue" : "#fff";
-                    })
-                    .on('click', clickDrag);
 
-                nodeEnter.select("circle.nodeCircle")
-                    .attr("r", 6)
-                    .style("fill", function(d) {
-                        return d._contents ? "lightsteelblue" : "#fff";
-                    });
-*/
-                // Rectange for toggles chidlren
-                nodeEnter.append("rect")
-                    .attr("x", function (d) { return d.x - 9; })
-                    .attr("y", function (d) { return d.y + (nodeHeight - 31); })
-                    .attr("width", function(d){
-                        if (((typeof d.contents !== 'undefined') && (d.contents !== null) && (d.contents.length > 0)) ||
-                            ((typeof d._contents !== 'undefined') && (d._contents !== null) && (d._contents.length > 0))){
-                            return nodeWidth-2;
-                        }
-                    })
-                    .attr("height", function(d){
-                        if (((typeof d.contents !== 'undefined') && (d.contents !== null) && (d.contents.length > 0)) ||
-                            ((typeof d._contents !== 'undefined') && (d._contents !== null) && (d._contents.length > 0))){
-                            return 20;
-                        }
-                    })
-                    .style("fill", function(d){ return d._contents ? "steelblue" : "lightsteelblue";})
-                    //.attr("transform", function(d) { return "translate(" + (parseInt(d.y, 10) + 10) + "," + d.x + ")"; })
-                    //.on('click', clickToggleChildren);
- /*               
-                // phantom node to give us mouseover in a radius around it
-                nodeEnter.append("rect")
-                    .attr('class', 'ghostCircle')
-                    .style("fill", "red")
-                    .attr("x", function (d) { return d.x - 15; })
-                    .attr("y", function (d) { return d.y - 15; })
-                    .attr('width', 110)
-                    .attr('height', nodeHeight + 10)
-                    .attr("opacity", 0.2)
-                    .attr('pointer-events', 'mouseover')
-                    .on("mouseover", function(node) {
-                        overCircle(node);
-                    })
-                    .on("mouseout", function(node) {
-                        outCircle(node);
-                    });
-                    
                 
-                nodeEnter.append('text')
-                    //.attr('dx', function(d){ return d.contents ? -12: 10;})
-                    .attr('dx', 10)
-                    .attr('dy', 3)
-                    //.style('text-anchor', function(d){ return d.contents ? 'end': 'start';})
-                    .style('text-anchor', 'start')
-                    .text(function(d){ return d.name;})
-                    .attr("transform", function(d) { return "translate(" + d.x + "," + d.y + ")"; });
-*/
+                var link = svg.selectAll('path.link')
+                        .data(links, function(d){
+                            return d.target.id;
+                        });
+
+                link.enter().insert('path', 'g')
+                    .attr('class', 'link')
+                    .attr("d", function (d) {
+
+                        var o = {
+                            x: source.x0,
+                            y: source.y0
+                        };
+                        
+                        return diagonal({
+                            source: o,
+                            target: o
+                        });
+                    });
+
+
+
+
+                // Transition links to their new position.
+                link.transition()
+                    .duration(750)
+                    .attr("d", diagonal);
+
+                // Transition exiting nodes to the parent's new position.
+                
+                link.exit().transition()
+                    .duration(750)
+                    .attr("d", function (d) {
+                        var o = {
+                            x: source.x,
+                            y: source.y
+                        };
+                        return diagonal({
+                            source: o,
+                            target: o
+                        });
+                    })
+                    .remove();
+
+
+               
+                
+
+
+
+
+                
+               
+
+ 
+
+
 
 
                
@@ -571,7 +540,13 @@ angular.module('myApp.directives', ['d3'])
                 
             }; // end render
 
-            scope.render(scope.data);
+
+            root.x0 = 0;
+            root.y0 = viewerHeight / 2;
+
+
+
+            update(root);
 
             
         });

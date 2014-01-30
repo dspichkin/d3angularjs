@@ -42,10 +42,10 @@ angular.module('myApp.controllers', [])
 
       $scope.data = {
             name: "",
-            contents: [
+            children: [
                 {
                     name: "Applications",
-                    contents: [
+                    children: [
                         { name: "Mail.app" },
                         { name: "iPhoto.app" },
                         { name: "Keynote.app" },
@@ -57,14 +57,14 @@ angular.module('myApp.controllers', [])
                 },
                 {
                     name: "System",
-                    contents: []
+                    children: []
                 },
                 {
                     name: "Library",
-                    contents: [
+                    children: [
                         {
                             name: "Application Support",
-                            contents: [
+                            children: [
                                 { name: "Adobe" },
                                 { name: "Apple" },
                                 { name: "Google" },
@@ -73,7 +73,7 @@ angular.module('myApp.controllers', [])
                         },
                         {
                             name: "Languages",
-                            contents: [
+                            children: [
                                 { name: "Ruby" },
                                 { name: "Python" },
                                 { name: "Javascript" },
@@ -82,7 +82,7 @@ angular.module('myApp.controllers', [])
                         },
                         {
                             name: "Developer",
-                            contents: [
+                            children: [
                                 { name: "4.2" },
                                 { name: "4.3" },
                                 { name: "5.0" },
@@ -93,11 +93,11 @@ angular.module('myApp.controllers', [])
                 },
                 {
                     name: "opt",
-                    contents: []
+                    children: []
                 },
                 {
                     name: "Users",
-                    contents: [
+                    children: [
                         { name: "pavanpodila" },
                         { name: "admin" },
                         { name: "test-user" }
